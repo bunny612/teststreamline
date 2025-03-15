@@ -9,7 +9,7 @@ export interface User {
   avatar?: string;
 }
 
-export type QuestionType = 'multiple-choice' | 'short-answer' | 'long-answer';
+export type QuestionType = 'multiple-choice' | 'short-answer' | 'long-answer' | 'pdf-upload';
 
 export interface Question {
   id: string;
@@ -20,6 +20,7 @@ export interface Question {
   correctAnswer?: string | number;
   points: number;
   imageUrl?: string;
+  pdfUrl?: string;
 }
 
 export interface Exam {
@@ -33,6 +34,7 @@ export interface Exam {
   status: 'draft' | 'scheduled' | 'active' | 'completed';
   totalPoints: number;
   questions: Question[];
+  pdfQuestionPaper?: string; // URL to the uploaded PDF
 }
 
 export interface StudentAnswer {

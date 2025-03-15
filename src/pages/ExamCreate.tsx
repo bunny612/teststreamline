@@ -27,7 +27,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Clock, Trash2, Plus, ChevronRight, ChevronLeft } from "lucide-react";
+import { CalendarIcon, Clock, Trash2, Plus, ChevronRight, ChevronLeft, FileText, Upload } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -36,6 +36,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Form schema for exam details
 const examFormSchema = z.object({
@@ -62,6 +64,9 @@ const ExamCreate = () => {
   const [step, setStep] = useState<number>(1);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [examDetails, setExamDetails] = useState<z.infer<typeof examFormSchema> | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [questionInputMethod, setQuestionInputMethod] = useState<"individual" | "pdf">("individual");
 
   const examForm = useForm<z.infer<typeof examFormSchema>>({
     resolver: zodResolver(examFormSchema),
@@ -100,7 +105,11 @@ const ExamCreate = () => {
     const newQuestion: Question = {
       id: `q${questions.length + 1}`,
       examId: "temp-id", // Will be replaced when saved to backend
-      ...values,
+      type: values.type,
+      content: values.content,
+      options: values.options,
+      correctAnswer: values.correctAnswer,
+      points: values.points,
     };
     
     setQuestions([...questions, newQuestion]);
@@ -131,21 +140,57 @@ const ExamCreate = () => {
     });
   };
 
+  const handlePdfUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "application/pdf") {
+      setPdfFile(file);
+      // Create a URL for the file preview
+      const fileUrl = URL.createObjectURL(file);
+      setPdfPreviewUrl(fileUrl);
+      
+      toast({
+        title: "PDF Uploaded",
+        description: "Your question paper has been uploaded",
+      });
+    } else if (file) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removePdf = () => {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+    }
+    setPdfFile(null);
+    setPdfPreviewUrl(null);
+  };
+
   const handleCreateExam = () => {
     if (!examDetails || !user) return;
     
-    // In a real app, this would be an API call
-    console.log("Creating exam with details:", {
+    // In a real app, this would be an API call to upload the PDF to a storage service
+    // and get back a URL that we would store in the exam object
+    
+    const examToCreate = {
       ...examDetails,
       teacherId: user.id,
       questions,
-      status: "draft",
+      status: "draft" as const,
       totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
-    });
+      pdfQuestionPaper: pdfPreviewUrl || undefined,
+    };
+    
+    console.log("Creating exam with details:", examToCreate);
     
     toast({
       title: "Exam Created",
-      description: "Your exam has been successfully created",
+      description: questionInputMethod === "pdf" 
+        ? "Your exam with PDF question paper has been successfully created" 
+        : "Your exam has been successfully created",
     });
     
     // Navigate to manage exams page
@@ -353,189 +398,305 @@ const ExamCreate = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="border p-4 rounded-md mb-6">
-                <Form {...questionForm}>
-                  <form onSubmit={questionForm.handleSubmit(handleAddQuestion)} className="space-y-4">
-                    <FormField
-                      control={questionForm.control}
-                      name="type"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Question Type</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select question type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                              <SelectItem value="short-answer">Short Answer</SelectItem>
-                              <SelectItem value="long-answer">Long Answer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={questionForm.control}
-                      name="content"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Question Text</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Enter your question here" 
-                              className="min-h-[100px]" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {questionForm.watch("type") === "multiple-choice" && (
-                      <div className="space-y-2">
-                        <FormLabel>Options</FormLabel>
-                        {(questionForm.watch("options") || []).map((_, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Input
-                              placeholder={`Option ${index + 1}`}
-                              value={questionForm.watch(`options.${index}`) || ""}
-                              onChange={(e) => {
-                                const newOptions = [...(questionForm.watch("options") || [])];
-                                newOptions[index] = e.target.value;
-                                questionForm.setValue("options", newOptions);
-                              }}
-                            />
-                            <input
-                              type="radio"
-                              checked={questionForm.watch("correctAnswer") === index}
-                              onChange={() => questionForm.setValue("correctAnswer", index)}
-                              className="h-4 w-4 text-exam-primary"
-                            />
-                          </div>
-                        ))}
-                        <FormDescription>
-                          Select the radio button next to the correct answer.
-                        </FormDescription>
-                      </div>
-                    )}
-                    
-                    {questionForm.watch("type") === "short-answer" && (
-                      <FormField
-                        control={questionForm.control}
-                        name="correctAnswer"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Correct Answer</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter the correct answer" 
-                                {...field} 
-                                value={field.value as string || ""}
-                              />
-                            </FormControl>
+              <Tabs 
+                defaultValue="individual" 
+                onValueChange={(value) => setQuestionInputMethod(value as "individual" | "pdf")}
+                className="mb-6"
+              >
+                <TabsList className="mb-4">
+                  <TabsTrigger value="individual">Create Individual Questions</TabsTrigger>
+                  <TabsTrigger value="pdf">Upload PDF Question Paper</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="individual">
+                  <div className="border p-4 rounded-md mb-6">
+                    <Form {...questionForm}>
+                      <form onSubmit={questionForm.handleSubmit(handleAddQuestion)} className="space-y-4">
+                        <FormField
+                          control={questionForm.control}
+                          name="type"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Question Type</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select question type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                  <SelectItem value="short-answer">Short Answer</SelectItem>
+                                  <SelectItem value="long-answer">Long Answer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={questionForm.control}
+                          name="content"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Question Text</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Enter your question here" 
+                                  className="min-h-[100px]" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {questionForm.watch("type") === "multiple-choice" && (
+                          <div className="space-y-2">
+                            <FormLabel>Options</FormLabel>
+                            {(questionForm.watch("options") || []).map((_, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <Input
+                                  placeholder={`Option ${index + 1}`}
+                                  value={questionForm.watch(`options.${index}`) || ""}
+                                  onChange={(e) => {
+                                    const newOptions = [...(questionForm.watch("options") || [])];
+                                    newOptions[index] = e.target.value;
+                                    questionForm.setValue("options", newOptions);
+                                  }}
+                                />
+                                <input
+                                  type="radio"
+                                  checked={questionForm.watch("correctAnswer") === index}
+                                  onChange={() => questionForm.setValue("correctAnswer", index)}
+                                  className="h-4 w-4 text-exam-primary"
+                                />
+                              </div>
+                            ))}
                             <FormDescription>
-                              This will be used for auto-grading.
+                              Select the radio button next to the correct answer.
                             </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                          </div>
                         )}
-                      />
-                    )}
-                    
-                    <FormField
-                      control={questionForm.control}
-                      name="points"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Points</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="flex justify-end">
-                      <Button type="submit" className="bg-exam-primary">
-                        Add Question
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </div>
-              
-              {questions.length > 0 ? (
-                <div className="space-y-4 mb-6">
-                  <h3 className="font-medium">Added Questions:</h3>
-                  {questions.map((question, index) => (
-                    <div key={index} className="border p-4 rounded-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="bg-exam-light text-exam-primary text-xs px-2 py-1 rounded-full uppercase">
-                            {question.type}
-                          </span>
-                          <span className="ml-2 text-sm text-muted-foreground">
-                            {question.points} points
-                          </span>
+                        
+                        {questionForm.watch("type") === "short-answer" && (
+                          <FormField
+                            control={questionForm.control}
+                            name="correctAnswer"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Correct Answer</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter the correct answer" 
+                                    {...field} 
+                                    value={field.value as string || ""}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  This will be used for auto-grading.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                        
+                        <FormField
+                          control={questionForm.control}
+                          name="points"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Points</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex justify-end">
+                          <Button type="submit" className="bg-exam-primary">
+                            Add Question
+                          </Button>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-red-500" 
-                          onClick={() => handleRemoveQuestion(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="mt-2 font-medium">{question.content}</p>
-                      
-                      {question.type === "multiple-choice" && question.options && (
-                        <div className="mt-2 space-y-1">
-                          {question.options.map((option, optIndex) => (
-                            <div 
-                              key={optIndex} 
-                              className={cn(
-                                "flex items-center p-2 rounded-md",
-                                question.correctAnswer === optIndex ? "bg-green-50 border border-green-200" : ""
-                              )}
-                            >
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-sm mr-2">
-                                {String.fromCharCode(65 + optIndex)}
-                              </span>
-                              {option}
-                              {question.correctAnswer === optIndex && (
-                                <span className="ml-auto text-green-600 text-sm font-medium">
-                                  Correct
-                                </span>
-                              )}
+                      </form>
+                    </Form>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="pdf">
+                  <div className="border p-4 rounded-md mb-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">Upload PDF Question Paper</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Upload a PDF file containing all your exam questions. Students will be able to download and view this file during the exam.
+                        </p>
+                        
+                        {!pdfFile ? (
+                          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center">
+                            <FileText className="h-10 w-10 text-muted-foreground mb-4" />
+                            <p className="text-sm text-muted-foreground mb-2">Drag and drop your PDF here, or click to browse</p>
+                            <label htmlFor="pdf-upload" className="cursor-pointer">
+                              <div className="bg-exam-primary text-white px-4 py-2 rounded-md flex items-center">
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload PDF
+                              </div>
+                              <input 
+                                id="pdf-upload" 
+                                type="file" 
+                                className="hidden" 
+                                accept="application/pdf" 
+                                onChange={handlePdfUpload}
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="border rounded-md p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center">
+                                <FileText className="h-6 w-6 text-exam-primary mr-2" />
+                                <span className="font-medium">{pdfFile.name}</span>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-500" 
+                                onClick={removePdf}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            
+                            {pdfPreviewUrl && (
+                              <div className="mt-4 border rounded">
+                                <div className="bg-gray-100 p-2 flex justify-between items-center">
+                                  <span className="text-sm font-medium">PDF Preview</span>
+                                  <a 
+                                    href={pdfPreviewUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-exam-primary"
+                                  >
+                                    Open in new tab
+                                  </a>
+                                </div>
+                                <iframe 
+                                  src={pdfPreviewUrl} 
+                                  className="w-full h-[400px] border-0" 
+                                  title="PDF Preview"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       
-                      {question.type === "short-answer" && (
-                        <div className="mt-2 p-2 bg-slate-50 rounded-md">
-                          <p className="text-sm text-muted-foreground">Expected answer:</p>
-                          <p className="font-medium">{question.correctAnswer as string}</p>
-                        </div>
-                      )}
+                      <FormItem>
+                        <FormLabel>Total Points for PDF Exam</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Enter total points for this exam"
+                            value={questions.reduce((sum, q) => sum + q.points, 0) || 100}
+                            onChange={(e) => {
+                              if (pdfFile) {
+                                // Create a single question that represents the whole PDF
+                                const totalPoints = parseInt(e.target.value) || 100;
+                                setQuestions([{
+                                  id: "q1",
+                                  examId: "temp-id",
+                                  type: "pdf-upload",
+                                  content: "PDF Question Paper",
+                                  points: totalPoints,
+                                  pdfUrl: pdfPreviewUrl || undefined
+                                }]);
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Set the total points for this PDF exam paper
+                        </FormDescription>
+                      </FormItem>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 mb-6">
-                  <p className="text-muted-foreground">No questions added yet. Add your first question above.</p>
-                </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              
+              {questionInputMethod === "individual" && (
+                <>
+                  {questions.length > 0 ? (
+                    <div className="space-y-4 mb-6">
+                      <h3 className="font-medium">Added Questions:</h3>
+                      {questions.map((question, index) => (
+                        <div key={index} className="border p-4 rounded-md">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="bg-exam-light text-exam-primary text-xs px-2 py-1 rounded-full uppercase">
+                                {question.type}
+                              </span>
+                              <span className="ml-2 text-sm text-muted-foreground">
+                                {question.points} points
+                              </span>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-500" 
+                              onClick={() => handleRemoveQuestion(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <p className="mt-2 font-medium">{question.content}</p>
+                          
+                          {question.type === "multiple-choice" && question.options && (
+                            <div className="mt-2 space-y-1">
+                              {question.options.map((option, optIndex) => (
+                                <div 
+                                  key={optIndex} 
+                                  className={cn(
+                                    "flex items-center p-2 rounded-md",
+                                    question.correctAnswer === optIndex ? "bg-green-50 border border-green-200" : ""
+                                  )}
+                                >
+                                  <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-sm mr-2">
+                                    {String.fromCharCode(65 + optIndex)}
+                                  </span>
+                                  {option}
+                                  {question.correctAnswer === optIndex && (
+                                    <span className="ml-auto text-green-600 text-sm font-medium">
+                                      Correct
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {question.type === "short-answer" && (
+                            <div className="mt-2 p-2 bg-slate-50 rounded-md">
+                              <p className="text-sm text-muted-foreground">Expected answer:</p>
+                              <p className="font-medium">{question.correctAnswer as string}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 mb-6">
+                      <p className="text-muted-foreground">No questions added yet. Add your first question above.</p>
+                    </div>
+                  )}
+                </>
               )}
               
               <div className="flex justify-between">
@@ -546,7 +707,8 @@ const ExamCreate = () => {
                 <Button 
                   onClick={() => setStep(3)} 
                   className="bg-exam-primary"
-                  disabled={questions.length === 0}
+                  disabled={(questionInputMethod === "individual" && questions.length === 0) || 
+                            (questionInputMethod === "pdf" && !pdfFile)}
                 >
                   Review Exam
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -589,68 +751,107 @@ const ExamCreate = () => {
                   </div>
                 </div>
                 
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium">Questions ({questions.length})</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Total Points: {questions.reduce((sum, q) => sum + q.points, 0)}
-                    </p>
-                  </div>
-                  
-                  {questions.map((question, index) => (
-                    <div key={index} className="border p-4 rounded-md mb-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-sm font-medium">Question {index + 1}</span>
-                          <span className="ml-2 bg-exam-light text-exam-primary text-xs px-2 py-1 rounded-full uppercase">
-                            {question.type}
-                          </span>
-                          <span className="ml-2 text-sm text-muted-foreground">
-                            {question.points} points
-                          </span>
-                        </div>
+                {questionInputMethod === "pdf" && pdfFile ? (
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-medium">PDF Question Paper</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Total Points: {questions.reduce((sum, q) => sum + q.points, 0) || 100}
+                      </p>
+                    </div>
+                    
+                    <div className="border rounded-md p-4">
+                      <div className="flex items-center mb-4">
+                        <FileText className="h-6 w-6 text-exam-primary mr-2" />
+                        <span className="font-medium">{pdfFile.name}</span>
                       </div>
-                      <p className="mt-2 font-medium">{question.content}</p>
                       
-                      {question.type === "multiple-choice" && question.options && (
-                        <div className="mt-2 space-y-1">
-                          {question.options.map((option, optIndex) => (
-                            <div 
-                              key={optIndex} 
-                              className={cn(
-                                "flex items-center p-2 rounded-md",
-                                question.correctAnswer === optIndex ? "bg-green-50 border border-green-200" : ""
-                              )}
+                      {pdfPreviewUrl && (
+                        <div className="border rounded">
+                          <div className="bg-gray-100 p-2 flex justify-between items-center">
+                            <span className="text-sm font-medium">PDF Preview</span>
+                            <a 
+                              href={pdfPreviewUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm text-exam-primary"
                             >
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-sm mr-2">
-                                {String.fromCharCode(65 + optIndex)}
-                              </span>
-                              {option}
-                              {question.correctAnswer === optIndex && (
-                                <span className="ml-auto text-green-600 text-sm font-medium">
-                                  Correct
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {question.type === "short-answer" && (
-                        <div className="mt-2 p-2 bg-slate-50 rounded-md">
-                          <p className="text-sm text-muted-foreground">Expected answer:</p>
-                          <p className="font-medium">{question.correctAnswer as string}</p>
+                              Open in new tab
+                            </a>
+                          </div>
+                          <iframe 
+                            src={pdfPreviewUrl} 
+                            className="w-full h-[300px] border-0" 
+                            title="PDF Preview"
+                          />
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-medium">Questions ({questions.length})</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Total Points: {questions.reduce((sum, q) => sum + q.points, 0)}
+                      </p>
+                    </div>
+                    
+                    {questions.map((question, index) => (
+                      <div key={index} className="border p-4 rounded-md mb-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-sm font-medium">Question {index + 1}</span>
+                            <span className="ml-2 bg-exam-light text-exam-primary text-xs px-2 py-1 rounded-full uppercase">
+                              {question.type}
+                            </span>
+                            <span className="ml-2 text-sm text-muted-foreground">
+                              {question.points} points
+                            </span>
+                          </div>
+                        </div>
+                        <p className="mt-2 font-medium">{question.content}</p>
+                        
+                        {question.type === "multiple-choice" && question.options && (
+                          <div className="mt-2 space-y-1">
+                            {question.options.map((option, optIndex) => (
+                              <div 
+                                key={optIndex} 
+                                className={cn(
+                                  "flex items-center p-2 rounded-md",
+                                  question.correctAnswer === optIndex ? "bg-green-50 border border-green-200" : ""
+                                )}
+                              >
+                                <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-sm mr-2">
+                                  {String.fromCharCode(65 + optIndex)}
+                                </span>
+                                {option}
+                                {question.correctAnswer === optIndex && (
+                                  <span className="ml-auto text-green-600 text-sm font-medium">
+                                    Correct
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {question.type === "short-answer" && (
+                          <div className="mt-2 p-2 bg-slate-50 rounded-md">
+                            <p className="text-sm text-muted-foreground">Expected answer:</p>
+                            <p className="font-medium">{question.correctAnswer as string}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={handleBack}>
                 <ChevronLeft className="mr-2 h-4 w-4" />
-                Back to Questions
+                Back
               </Button>
               <Button 
                 onClick={handleCreateExam} 
