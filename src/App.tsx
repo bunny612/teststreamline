@@ -11,6 +11,12 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
+import Results from "./pages/Results";
+import ExamManage from "./pages/ExamManage";
+import ExamCreate from "./pages/ExamCreate";
+import ExamEdit from "./pages/ExamEdit";
+import ExamUpcoming from "./pages/ExamUpcoming";
 
 // Layouts
 import AppLayout from "./components/AppLayout";
@@ -33,17 +39,23 @@ const App = () => (
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               
-              {/* Add other protected routes as needed */}
-              <Route path="/exams/upcoming" element={<Dashboard />} />
-              <Route path="/exams/manage" element={<Dashboard />} />
-              <Route path="/exams/create" element={<Dashboard />} />
+              {/* Teacher Routes */}
+              <Route path="/exams/manage" element={<ExamManage />} />
+              <Route path="/exams/create" element={<ExamCreate />} />
+              <Route path="/exams/edit/:id" element={<ExamEdit />} />
+              
+              {/* Student Routes */}
+              <Route path="/exams/upcoming" element={<ExamUpcoming />} />
+              <Route path="/results" element={<Results />} />
+              <Route path="/results/:id" element={<Results />} />
+              
+              {/* Profile & Settings */}
               <Route path="/profile" element={<Dashboard />} />
               <Route path="/settings" element={<Dashboard />} />
-              <Route path="/results" element={<Dashboard />} />
             </Route>
             
-            {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Index route redirector */}
+            <Route path="/" element={<Index />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
