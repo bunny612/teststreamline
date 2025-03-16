@@ -19,6 +19,7 @@ import ExamEdit from "./pages/ExamEdit";
 import ExamUpcoming from "./pages/ExamUpcoming";
 import ExamTake from "./pages/ExamTake";
 import ExamDetails from "./pages/ExamDetails";
+import ExamEvaluate from "./pages/ExamEvaluate";
 
 // Layouts
 import AppLayout from "./components/AppLayout";
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/exams/manage" element={<ExamManage />} />
               <Route path="/exams/create" element={<ExamCreate />} />
               <Route path="/exams/edit/:id" element={<ExamEdit />} />
+              <Route path="/exams/evaluate/:id" element={<ExamEvaluate />} />
               
               {/* Student Routes */}
               <Route path="/exams/upcoming" element={<ExamUpcoming />} />

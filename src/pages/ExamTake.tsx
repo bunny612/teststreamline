@@ -18,6 +18,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Mock exam data
 const mockExam: Exam = {
@@ -398,10 +399,10 @@ const ExamTake = () => {
   const currentAnswer = answers.find(a => a.questionId === currentQuestion.id);
   
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-50">
       {/* Question Panel */}
       <div className="flex-1 flex flex-col h-full overflow-auto">
-        <div className="p-4 bg-white border-b flex justify-between items-center sticky top-0 z-10">
+        <div className="p-4 bg-white border-b flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex items-center">
             <Button 
               variant="ghost" 
@@ -431,7 +432,7 @@ const ExamTake = () => {
             {lastSaved && <span className="text-xs text-muted-foreground">Last saved: {format(lastSaved, "h:mm:ss a")}</span>}
             
             <div className={cn(
-              "flex items-center px-3 py-1 rounded-full text-sm font-medium",
+              "flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors",
               timeRemaining <= 300 ? "bg-red-100 text-red-700" : "bg-exam-light text-exam-primary"
             )}>
               <Clock className="h-4 w-4 mr-1" />
@@ -459,7 +460,7 @@ const ExamTake = () => {
               </div>
               
               {/* Question content */}
-              <div className="bg-white p-4 rounded-md border">
+              <div className="bg-white p-4 rounded-md border shadow-sm hover:shadow-md transition-all">
                 <p className="text-lg">{currentQuestion.content}</p>
                 
                 {currentQuestion.imageUrl && (
@@ -474,16 +475,16 @@ const ExamTake = () => {
               </div>
               
               {/* Answer section */}
-              <div className="bg-white p-5 rounded-md border">
+              <div className="bg-white p-5 rounded-md border shadow-sm hover:shadow-md transition-all">
                 {currentQuestion.type === 'multiple-choice' && (
                   <RadioGroup 
-                    value={String(currentAnswer?.answer || "")}
+                    value={currentAnswer?.answer?.toString() || ""}
                     onValueChange={value => handleAnswerChange(currentQuestion.id, Number(value))}
                     className="space-y-3"
                   >
                     {currentQuestion.options?.map((option, index) => (
-                      <div key={index} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md">
-                        <RadioGroupItem value={String(index)} id={`option-${index}`} />
+                      <div key={index} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md transition-colors">
+                        <RadioGroupItem value={index.toString()} id={`option-${index}`} />
                         <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">{option}</Label>
                       </div>
                     ))}
@@ -495,7 +496,7 @@ const ExamTake = () => {
                     placeholder="Type your answer here..."
                     value={String(currentAnswer?.answer || "")}
                     onChange={e => handleAnswerChange(currentQuestion.id, e.target.value)}
-                    className="w-full"
+                    className="w-full focus:ring-2 focus:ring-exam-primary/30"
                   />
                 )}
                 
@@ -504,7 +505,7 @@ const ExamTake = () => {
                     placeholder="Type your answer here..."
                     value={String(currentAnswer?.answer || "")}
                     onChange={e => handleAnswerChange(currentQuestion.id, e.target.value)}
-                    className="w-full min-h-[200px] resize-y"
+                    className="w-full min-h-[200px] resize-y focus:ring-2 focus:ring-exam-primary/30"
                   />
                 )}
               </div>
@@ -512,18 +513,18 @@ const ExamTake = () => {
           </div>
         </div>
         
-        <div className="p-4 border-t bg-white flex justify-between sticky bottom-0">
+        <div className="p-4 border-t bg-white flex justify-between sticky bottom-0 shadow-md">
           <div>
             <Button
               variant="outline"
               onClick={() => toggleMarkForReview(currentQuestion.id)}
               className={cn(
-                "mr-4",
+                "transition-all",
                 currentAnswer?.markedForReview && "bg-yellow-50 border-yellow-300 text-yellow-700"
               )}
             >
               <Flag className={cn(
-                "h-4 w-4 mr-2",
+                "h-4 w-4 mr-2 transition-colors",
                 currentAnswer?.markedForReview ? "text-yellow-500" : "text-muted-foreground"
               )} />
               {currentAnswer?.markedForReview ? "Marked for Review" : "Mark for Review"}
@@ -535,6 +536,7 @@ const ExamTake = () => {
               <Button
                 variant="outline"
                 onClick={() => navigateToQuestion(currentQuestionIndex - 1)}
+                className="transition-all hover:bg-slate-100"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Previous
@@ -544,7 +546,7 @@ const ExamTake = () => {
             {currentQuestionIndex < exam.questions.length - 1 ? (
               <Button
                 onClick={() => navigateToQuestion(currentQuestionIndex + 1)}
-                className="bg-exam-primary"
+                className="bg-exam-primary hover:bg-exam-primary/90 transition-all"
               >
                 Next
                 <ArrowRight className="h-4 w-4 ml-2" />
@@ -552,7 +554,7 @@ const ExamTake = () => {
             ) : (
               <Button
                 onClick={() => setShowConfirmSubmit(true)}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 transition-all"
               >
                 Submit Exam
               </Button>
@@ -562,10 +564,10 @@ const ExamTake = () => {
       </div>
       
       {/* Question Navigation Panel */}
-      <div className="w-80 border-l bg-white hidden md:flex md:flex-col h-full overflow-auto">
+      <div className="w-80 border-l bg-white hidden md:flex md:flex-col h-full overflow-auto shadow-inner">
         <div className="p-4 border-b">
-          <h3 className="font-medium mb-2">Progress</h3>
-          <Progress value={getProgressPercentage()} className="h-2 mb-2" />
+          <h3 className="font-medium mb-2 text-exam-primary">Progress</h3>
+          <Progress value={getProgressPercentage()} className="h-2 mb-2 bg-slate-200" />
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>{answers.filter(a => a.answer).length} of {exam.questions.length} answered</span>
             <span>{Math.round(getProgressPercentage())}%</span>
@@ -573,7 +575,7 @@ const ExamTake = () => {
         </div>
         
         <div className="p-4 border-b">
-          <h3 className="font-medium mb-2">Questions</h3>
+          <h3 className="font-medium mb-2 text-exam-primary">Questions</h3>
           <div className="grid grid-cols-5 gap-2">
             {exam.questions.map((_, index) => {
               const status = getQuestionStatus(index);
@@ -583,7 +585,7 @@ const ExamTake = () => {
                   variant="outline"
                   size="sm"
                   className={cn(
-                    "h-8 w-8 p-0",
+                    "h-8 w-8 p-0 transition-all",
                     status === "answered" && "bg-green-100 border-green-300 text-green-700",
                     status === "review" && "bg-yellow-100 border-yellow-300 text-yellow-700",
                     currentQuestionIndex === index && "ring-2 ring-exam-primary ring-offset-1"
@@ -616,7 +618,7 @@ const ExamTake = () => {
         
         <div className="mt-auto p-4 border-t">
           <Button 
-            className="w-full bg-green-600 hover:bg-green-700"
+            className="w-full bg-green-600 hover:bg-green-700 transition-all"
             onClick={() => setShowConfirmSubmit(true)}
           >
             Submit Exam

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Exam, Question, QuestionType } from "@/types";
@@ -80,7 +79,7 @@ const examFormSchema = z.object({
 
 // Form schema for questions
 const questionFormSchema = z.object({
-  type: z.enum(["multiple-choice", "short-answer", "long-answer"]),
+  type: z.enum(["multiple-choice", "short-answer", "long-answer", "pdf-upload"]),
   content: z.string().min(3, { message: "Question must be at least 3 characters" }),
   options: z.array(z.string()).optional(),
   correctAnswer: z.union([z.string(), z.number()]).optional(),
@@ -118,14 +117,11 @@ const ExamEdit = () => {
     },
   });
 
-  // Fetch exam data
   useEffect(() => {
-    // In a real app, fetch from API
     setTimeout(() => {
       setExam(mockExam);
       setLoading(false);
       
-      // Populate exam form
       examForm.reset({
         title: mockExam.title,
         description: mockExam.description,
@@ -137,7 +133,6 @@ const ExamEdit = () => {
   }, [id]);
 
   const handleSaveExam = (values: z.infer<typeof examFormSchema>) => {
-    // In a real app, send to API
     console.log("Saving exam details:", values);
     toast({
       title: "Exam Updated",
@@ -174,26 +169,26 @@ const ExamEdit = () => {
   const handleSaveQuestion = (values: z.infer<typeof questionFormSchema>) => {
     if (!exam) return;
     
-    // Create a copy of the questions array
     const updatedQuestions = [...exam.questions];
     
     if (editingQuestion !== null) {
-      // Update existing question
       updatedQuestions[editingQuestion] = {
         ...updatedQuestions[editingQuestion],
         ...values,
       };
     } else {
-      // Add new question
       const newQuestion: Question = {
         id: `q${exam.questions.length + 1}`,
         examId: exam.id,
-        ...values,
+        type: values.type,
+        content: values.content,
+        options: values.options,
+        correctAnswer: values.correctAnswer,
+        points: values.points,
       };
       updatedQuestions.push(newQuestion);
     }
     
-    // Update the exam with new questions
     setExam({
       ...exam,
       questions: updatedQuestions,
@@ -207,7 +202,6 @@ const ExamEdit = () => {
         : "A new question has been added to the exam",
     });
     
-    // Reset form and editing state
     setEditingQuestion(null);
     questionForm.reset();
   };
@@ -230,7 +224,6 @@ const ExamEdit = () => {
   };
 
   const handlePublish = () => {
-    // In a real app, send to API to change status
     if (!exam) return;
     
     setExam({
@@ -477,6 +470,7 @@ const ExamEdit = () => {
                                   <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
                                   <SelectItem value="short-answer">Short Answer</SelectItem>
                                   <SelectItem value="long-answer">Long Answer</SelectItem>
+                                  <SelectItem value="pdf-upload">PDF Upload</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -547,6 +541,25 @@ const ExamEdit = () => {
                                 <FormDescription>
                                   This will be used for auto-grading.
                                 </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                        
+                        {questionForm.watch("type") === "pdf-upload" && (
+                          <FormField
+                            control={questionForm.control}
+                            name="pdfUrl"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>PDF URL</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter the PDF URL" 
+                                    {...field} 
+                                  />
+                                </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
