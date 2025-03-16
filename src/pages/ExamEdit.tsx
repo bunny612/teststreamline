@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Exam, Question, QuestionType } from "@/types";
@@ -77,13 +78,14 @@ const examFormSchema = z.object({
   endDate: z.date({ required_error: "End date is required" }),
 });
 
-// Form schema for questions
+// Form schema for questions - add pdfUrl to the schema
 const questionFormSchema = z.object({
   type: z.enum(["multiple-choice", "short-answer", "long-answer", "pdf-upload"]),
   content: z.string().min(3, { message: "Question must be at least 3 characters" }),
   options: z.array(z.string()).optional(),
   correctAnswer: z.union([z.string(), z.number()]).optional(),
   points: z.coerce.number().min(1, { message: "Points must be at least 1" }),
+  pdfUrl: z.string().optional(), // Add this field to the schema
 });
 
 const ExamEdit = () => {
@@ -274,7 +276,7 @@ const ExamEdit = () => {
             className={activeTab === "questions" ? "bg-exam-primary" : ""}
             onClick={() => setActiveTab("questions")}
           >
-            Questions ({exam.questions.length})
+            Questions ({exam?.questions.length})
           </Button>
         </div>
         
@@ -558,6 +560,7 @@ const ExamEdit = () => {
                                   <Input 
                                     placeholder="Enter the PDF URL" 
                                     {...field} 
+                                    value={field.value || ""}
                                   />
                                 </FormControl>
                                 <FormMessage />
