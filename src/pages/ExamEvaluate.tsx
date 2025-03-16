@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Exam, ExamAttempt, StudentAnswer, ExamResult } from "@/types";
+import { Exam, ExamAttempt, StudentAnswer } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import CustomSpinner from "@/components/CustomSpinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -167,6 +168,7 @@ const ExamEvaluate = () => {
   const [showConfirmGrading, setShowConfirmGrading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [savingGrades, setSavingGrades] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   
   // Fetch exam and attempts data
   useEffect(() => {
@@ -187,7 +189,10 @@ const ExamEvaluate = () => {
       const answerIndex = attempt.answers.findIndex(a => a.questionId === questionId);
       
       if (answerIndex !== -1) {
-        attempt.answers[answerIndex].score = value;
+        attempt.answers[answerIndex] = {
+          ...attempt.answers[answerIndex],
+          score: value
+        };
       }
       
       return newAttempts;
@@ -205,7 +210,10 @@ const ExamEvaluate = () => {
       const answerIndex = attempt.answers.findIndex(a => a.questionId === questionId);
       
       if (answerIndex !== -1) {
-        attempt.answers[answerIndex].feedback = value;
+        attempt.answers[answerIndex] = {
+          ...attempt.answers[answerIndex],
+          feedback: value
+        };
       }
       
       return newAttempts;
@@ -254,11 +262,41 @@ const ExamEvaluate = () => {
   };
   
   const handleDownloadPDF = () => {
+    setGeneratingPdf(true);
+    
     // In a real app, this would generate and download a PDF
-    toast({
-      title: "PDF Generated",
-      description: "The exam results have been downloaded as a PDF",
-    });
+    setTimeout(() => {
+      setGeneratingPdf(false);
+      
+      // Create a simulated PDF download
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(
+        JSON.stringify(
+          currentAttemptIndex !== null 
+            ? attempts[currentAttemptIndex] 
+            : attempts, 
+          null, 2
+        )
+      );
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `exam-results-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      
+      toast({
+        title: "Results Downloaded",
+        description: "The exam results have been downloaded as a JSON file",
+      });
+    }, 2000);
+  };
+  
+  const handleManageEvaluations = () => {
+    if (id) {
+      navigate(`/evaluation-center/${id}`);
+    } else {
+      navigate("/exams/manage");
+    }
   };
   
   if (loading) {
@@ -300,16 +338,28 @@ const ExamEvaluate = () => {
           <p className="text-muted-foreground">{exam.description}</p>
         </div>
         
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Student Submissions</CardTitle>
-            <CardDescription>
-              {attempts.length} students have submitted this exam
-            </CardDescription>
+        <Card className="shadow-md glass-card animate-fade-in">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle>Student Submissions</CardTitle>
+                <CardDescription>
+                  {attempts.length} students have submitted this exam
+                </CardDescription>
+              </div>
+              
+              <Button 
+                className="bg-exam-primary hover:bg-exam-primary/90"
+                onClick={handleManageEvaluations}
+              >
+                <FileCheck className="h-4 w-4 mr-2" />
+                Evaluation Center
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {attempts.length > 0 ? (
-              <div className="space-y-4">
+              <div>
                 {attempts.map((attempt, index) => {
                   const student = mockStudents[attempt.studentId as keyof typeof mockStudents];
                   const totalScore = attempt.totalScore || calculateTotalScore(index);
@@ -319,7 +369,7 @@ const ExamEvaluate = () => {
                   return (
                     <div 
                       key={attempt.id} 
-                      className="border p-4 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="p-4 border-b last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                       onClick={() => setCurrentAttemptIndex(index)}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -339,21 +389,23 @@ const ExamEvaluate = () => {
                               <span className="font-medium">{totalScore} / {maxScore}</span>
                               <span className={cn(
                                 "ml-2 text-xs px-2 py-1 rounded-full",
-                                percentage >= 70 ? "bg-green-100 text-green-800" :
-                                percentage >= 40 ? "bg-yellow-100 text-yellow-800" :
-                                "bg-red-100 text-red-800"
+                                percentage >= 70 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" :
+                                percentage >= 40 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" :
+                                "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                               )}>
                                 {percentage}%
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Submitted {format(new Date(attempt.endTime), "MMM d, yyyy 'at' h:mm a")}
+                              Submitted {format(new Date(attempt.endTime || ""), "MMM d, yyyy 'at' h:mm a")}
                             </p>
                           </div>
                           
                           <Badge 
                             variant={attempt.status === "graded" ? "default" : "outline"}
-                            className={attempt.status === "graded" ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
+                            className={attempt.status === "graded" ? 
+                              "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200" : 
+                              ""}
                           >
                             {attempt.status === "graded" ? (
                               <span className="flex items-center">
@@ -384,9 +436,19 @@ const ExamEvaluate = () => {
               variant="outline"
               className="flex items-center"
               onClick={handleDownloadPDF}
+              disabled={generatingPdf || attempts.length === 0}
             >
-              <Download className="h-4 w-4 mr-2" />
-              Download All Results
+              {generatingPdf ? (
+                <>
+                  <CustomSpinner size="sm" className="mr-2" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All Results
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>
@@ -421,18 +483,19 @@ const ExamEvaluate = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          <Card className="shadow-md mb-6">
-            <CardHeader className="border-b bg-exam-light">
+          <Card className="shadow-md glass-card animate-fade-in">
+            <CardHeader className="border-b bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
               <div className="flex justify-between">
                 <div>
                   <CardTitle className="text-exam-primary">Grading: {student.name}</CardTitle>
                   <CardDescription>
-                    {format(new Date(currentAttempt.endTime), "MMMM d, yyyy 'at' h:mm a")}
+                    {format(new Date(currentAttempt.endTime || ""), "MMMM d, yyyy 'at' h:mm a")}
                   </CardDescription>
                 </div>
                 <Badge 
                   variant={currentAttempt.status === "graded" ? "default" : "outline"}
-                  className={currentAttempt.status === "graded" ? "bg-green-100 text-green-800" : ""}
+                  className={currentAttempt.status === "graded" ? 
+                    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : ""}
                 >
                   {currentAttempt.status === "graded" ? "Graded" : "Needs Grading"}
                 </Badge>
@@ -476,7 +539,7 @@ const ExamEvaluate = () => {
                           {currentQuestion.points} points
                         </span>
                       </div>
-                      <div className="mt-1 p-3 bg-slate-50 rounded-md">
+                      <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md">
                         <p className="font-medium">{currentQuestion.content}</p>
                         
                         {currentQuestion.type === "multiple-choice" && currentQuestion.options && (
@@ -486,21 +549,23 @@ const ExamEvaluate = () => {
                                 key={index} 
                                 className={cn(
                                   "flex items-center p-2 rounded-md",
-                                  currentQuestion.correctAnswer === index ? "bg-green-50 border border-green-200" : "",
-                                  currentAnswer.answer === index && currentQuestion.correctAnswer !== index ? "bg-red-50 border border-red-200" : ""
+                                  currentQuestion.correctAnswer === index ? 
+                                    "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-700" : "",
+                                  currentAnswer.answer === index && currentQuestion.correctAnswer !== index ? 
+                                    "bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-700" : ""
                                 )}
                               >
-                                <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-sm mr-2">
+                                <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-sm mr-2">
                                   {String.fromCharCode(65 + index)}
                                 </span>
                                 {option}
                                 {currentQuestion.correctAnswer === index && (
-                                  <span className="ml-auto text-green-600 text-sm font-medium">
+                                  <span className="ml-auto text-green-600 dark:text-green-400 text-sm font-medium">
                                     Correct
                                   </span>
                                 )}
                                 {currentAnswer.answer === index && currentQuestion.correctAnswer !== index && (
-                                  <span className="ml-auto text-red-600 text-sm font-medium">
+                                  <span className="ml-auto text-red-600 dark:text-red-400 text-sm font-medium">
                                     Student Selected
                                   </span>
                                 )}
@@ -513,7 +578,7 @@ const ExamEvaluate = () => {
                     
                     <div>
                       <span className="text-xs font-medium uppercase text-muted-foreground">Student's Answer</span>
-                      <div className="mt-1 p-3 bg-white border rounded-md">
+                      <div className="mt-1 p-3 bg-white dark:bg-slate-800 border rounded-md">
                         {currentQuestion.type === "multiple-choice" ? (
                           <p>{currentQuestion.options?.[currentAnswer.answer as number] || "No answer provided"}</p>
                         ) : (
@@ -525,7 +590,7 @@ const ExamEvaluate = () => {
                     {currentQuestion.type !== "multiple-choice" && currentQuestion.type === "short-answer" && (
                       <div>
                         <span className="text-xs font-medium uppercase text-muted-foreground">Expected Answer</span>
-                        <div className="mt-1 p-3 bg-green-50 border border-green-200 rounded-md">
+                        <div className="mt-1 p-3 bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-700 rounded-md">
                           <p>{currentQuestion.correctAnswer}</p>
                         </div>
                       </div>
@@ -572,13 +637,13 @@ const ExamEvaluate = () => {
               
               <Button 
                 onClick={() => setShowConfirmGrading(true)}
-                className="bg-exam-primary"
+                className="bg-exam-primary hover:bg-exam-primary/90"
                 disabled={savingGrades}
               >
                 {savingGrades ? (
                   <span className="flex items-center">
-                    <LoadingSpinner size="sm" />
-                    <span className="ml-2">Saving...</span>
+                    <CustomSpinner size="sm" className="mr-2" />
+                    <span>Saving...</span>
                   </span>
                 ) : (
                   "Submit Grades"
@@ -589,8 +654,8 @@ const ExamEvaluate = () => {
         </div>
         
         <div>
-          <Card className="shadow-md sticky top-6">
-            <CardHeader>
+          <Card className="shadow-md glass-card sticky top-6 animate-fade-in">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b">
               <CardTitle className="text-lg">All Questions</CardTitle>
             </CardHeader>
             <CardContent>
@@ -601,8 +666,8 @@ const ExamEvaluate = () => {
                     <div 
                       key={answer.questionId}
                       className={cn(
-                        "p-3 border rounded-md cursor-pointer hover:bg-slate-50 transition-colors",
-                        currentAnswerIndex === index && "bg-exam-light border-exam-primary"
+                        "p-3 border rounded-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
+                        currentAnswerIndex === index && "bg-exam-light dark:bg-slate-700/30 border-exam-primary"
                       )}
                       onClick={() => setCurrentAnswerIndex(index)}
                     >
@@ -625,9 +690,19 @@ const ExamEvaluate = () => {
                 className="w-full" 
                 variant="outline"
                 onClick={handleDownloadPDF}
+                disabled={generatingPdf}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Download Evaluation
+                {generatingPdf ? (
+                  <>
+                    <CustomSpinner size="sm" className="mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Evaluation
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>
@@ -636,7 +711,7 @@ const ExamEvaluate = () => {
       
       {/* Confirm Grading Dialog */}
       <AlertDialog open={showConfirmGrading} onOpenChange={setShowConfirmGrading}>
-        <AlertDialogContent>
+        <AlertDialogContent className="glass-card">
           <AlertDialogHeader>
             <AlertDialogTitle>Submit Grades</AlertDialogTitle>
             <AlertDialogDescription>
@@ -652,7 +727,7 @@ const ExamEvaluate = () => {
                 setShowConfirmGrading(false);
                 handleSubmitGrading();
               }}
-              className="bg-exam-primary"
+              className="bg-exam-primary hover:bg-exam-primary/90"
             >
               Submit Grades
             </AlertDialogAction>

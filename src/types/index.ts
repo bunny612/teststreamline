@@ -31,16 +31,25 @@ export interface Exam {
   duration: number; // in minutes
   startDate: string;
   endDate: string;
-  status: 'draft' | 'scheduled' | 'active' | 'completed';
+  status: 'draft' | 'scheduled' | 'active' | 'completed' | 'graded';
   totalPoints: number;
   questions: Question[];
   pdfQuestionPaper?: string; // URL to the uploaded PDF
+  modelAnswers?: ModelAnswer[]; // Added model answers
+}
+
+export interface ModelAnswer {
+  questionId: string;
+  answer: string | number;
+  explanation?: string;
 }
 
 export interface StudentAnswer {
   questionId: string;
   answer: string | number;
-  markedForReview: boolean;
+  markedForReview?: boolean;
+  score?: number;
+  feedback?: string;
 }
 
 export interface ExamAttempt {
@@ -52,6 +61,7 @@ export interface ExamAttempt {
   status: 'in-progress' | 'completed' | 'graded';
   answers: StudentAnswer[];
   score?: number;
+  totalScore?: number;
 }
 
 export interface ExamResult {
