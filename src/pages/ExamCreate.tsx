@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Question, QuestionType } from "@/types";
@@ -38,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AnswerPdfUpload from "@/components/AnswerPdfUpload";
 
 // Form schema for exam details
 const examFormSchema = z.object({
@@ -55,6 +55,7 @@ const questionFormSchema = z.object({
   options: z.array(z.string()).optional(),
   correctAnswer: z.union([z.string(), z.number()]).optional(),
   points: z.coerce.number().min(1, { message: "Points must be at least 1" }),
+  answerPdfUrl: z.string().optional(),
 });
 
 const ExamCreate = () => {
@@ -67,6 +68,8 @@ const ExamCreate = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [questionInputMethod, setQuestionInputMethod] = useState<"individual" | "pdf">("individual");
+  const [showAnswerPdfUpload, setShowAnswerPdfUpload] = useState(false);
+  const [answerPdfUrl, setAnswerPdfUrl] = useState<string | null>(null);
 
   const examForm = useForm<z.infer<typeof examFormSchema>>({
     resolver: zodResolver(examFormSchema),
@@ -104,13 +107,17 @@ const ExamCreate = () => {
     
     const newQuestion: Question = {
       id: `q${questions.length + 1}`,
-      examId: "temp-id", // Will be replaced when saved to backend
+      examId: "temp-id",
       type: values.type,
       content: values.content,
       options: values.options,
       correctAnswer: values.correctAnswer,
       points: values.points,
     };
+    
+    if (answerPdfUrl && (values.type === "short-answer" || values.type === "long-answer")) {
+      console.log("Answer PDF URL:", answerPdfUrl);
+    }
     
     setQuestions([...questions, newQuestion]);
     
@@ -119,7 +126,6 @@ const ExamCreate = () => {
       description: "Your question has been added to the exam",
     });
     
-    // Reset form for next question
     questionForm.reset({
       type: "multiple-choice",
       content: "",
@@ -127,6 +133,8 @@ const ExamCreate = () => {
       correctAnswer: 0,
       points: 10,
     });
+    setShowAnswerPdfUpload(false);
+    setAnswerPdfUrl(null);
   };
 
   const handleRemoveQuestion = (index: number) => {
@@ -144,7 +152,6 @@ const ExamCreate = () => {
     const file = event.target.files?.[0];
     if (file && file.type === "application/pdf") {
       setPdfFile(file);
-      // Create a URL for the file preview
       const fileUrl = URL.createObjectURL(file);
       setPdfPreviewUrl(fileUrl);
       
@@ -172,9 +179,6 @@ const ExamCreate = () => {
   const handleCreateExam = () => {
     if (!examDetails || !user) return;
     
-    // In a real app, this would be an API call to upload the PDF to a storage service
-    // and get back a URL that we would store in the exam object
-    
     const examToCreate = {
       ...examDetails,
       teacherId: user.id,
@@ -193,7 +197,6 @@ const ExamCreate = () => {
         : "Your exam has been successfully created",
     });
     
-    // Navigate to manage exams page
     navigate("/exams/manage");
   };
 
@@ -205,12 +208,29 @@ const ExamCreate = () => {
     }
   };
 
+  const handleQuestionTypeChange = (type: string) => {
+    const isTextAnswerType = type === "short-answer" || type === "long-answer";
+    setShowAnswerPdfUpload(isTextAnswerType);
+    
+    if (!isTextAnswerType) {
+      setAnswerPdfUrl(null);
+    }
+  };
+
+  const handleAnswerPdfUploaded = (url: string) => {
+    setAnswerPdfUrl(url);
+    questionForm.setValue("correctAnswer", "");
+  };
+
+  const handleAnswerPdfRemoved = () => {
+    setAnswerPdfUrl(null);
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-exam-primary mb-2">Create New Exam</h1>
         
-        {/* Progress Steps */}
         <div className="mb-6">
           <div className="flex items-center mb-2">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-exam-primary text-white' : 'bg-gray-200'}`}>
@@ -419,7 +439,10 @@ const ExamCreate = () => {
                             <FormItem>
                               <FormLabel>Question Type</FormLabel>
                               <Select
-                                onValueChange={field.onChange}
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleQuestionTypeChange(value);
+                                }}
                                 defaultValue={field.value}
                               >
                                 <FormControl>
@@ -484,7 +507,7 @@ const ExamCreate = () => {
                           </div>
                         )}
                         
-                        {questionForm.watch("type") === "short-answer" && (
+                        {questionForm.watch("type") === "short-answer" && !answerPdfUrl && (
                           <FormField
                             control={questionForm.control}
                             name="correctAnswer"
@@ -498,13 +521,82 @@ const ExamCreate = () => {
                                     value={field.value as string || ""}
                                   />
                                 </FormControl>
-                                <FormDescription>
-                                  This will be used for auto-grading.
+                                <FormDescription className="flex justify-between items-center">
+                                  <span>This will be used for auto-grading.</span>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="text-exam-primary"
+                                    onClick={() => setShowAnswerPdfUpload(true)}
+                                  >
+                                    <FileText className="mr-1 h-4 w-4" />
+                                    Upload Answer PDF Instead
+                                  </Button>
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
+                        )}
+                        
+                        {questionForm.watch("type") === "long-answer" && !answerPdfUrl && (
+                          <FormField
+                            control={questionForm.control}
+                            name="correctAnswer"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Model Answer</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Enter the model answer" 
+                                    className="min-h-[150px]"
+                                    {...field} 
+                                    value={field.value as string || ""}
+                                  />
+                                </FormControl>
+                                <FormDescription className="flex justify-between items-center">
+                                  <span>This will be used as a reference for grading.</span>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="text-exam-primary"
+                                    onClick={() => setShowAnswerPdfUpload(true)}
+                                  >
+                                    <FileText className="mr-1 h-4 w-4" />
+                                    Upload Answer PDF Instead
+                                  </Button>
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                        
+                        {showAnswerPdfUpload && (answerPdfUrl || questionForm.watch("type") === "short-answer" || questionForm.watch("type") === "long-answer") && (
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <FormLabel>Model Answer PDF</FormLabel>
+                              {answerPdfUrl && (
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setShowAnswerPdfUpload(false);
+                                    setAnswerPdfUrl(null);
+                                  }}
+                                >
+                                  Enter Text Answer Instead
+                                </Button>
+                              )}
+                            </div>
+                            <AnswerPdfUpload 
+                              onPdfUploaded={handleAnswerPdfUploaded}
+                              onPdfRemoved={handleAnswerPdfRemoved}
+                            />
+                          </div>
                         )}
                         
                         <FormField
@@ -608,7 +700,6 @@ const ExamCreate = () => {
                             value={questions.reduce((sum, q) => sum + q.points, 0) || 100}
                             onChange={(e) => {
                               if (pdfFile) {
-                                // Create a single question that represents the whole PDF
                                 const totalPoints = parseInt(e.target.value) || 100;
                                 setQuestions([{
                                   id: "q1",
@@ -685,7 +776,24 @@ const ExamCreate = () => {
                           {question.type === "short-answer" && (
                             <div className="mt-2 p-2 bg-slate-50 rounded-md">
                               <p className="text-sm text-muted-foreground">Expected answer:</p>
-                              <p className="font-medium">{question.correctAnswer as string}</p>
+                              <p className="font-medium">
+                                {question.correctAnswer ? 
+                                  (question.correctAnswer as string) : 
+                                  <span className="text-exam-accent italic">Answer provided as PDF</span>
+                                }
+                              </p>
+                            </div>
+                          )}
+                          
+                          {question.type === "long-answer" && (
+                            <div className="mt-2 p-2 bg-slate-50 rounded-md">
+                              <p className="text-sm text-muted-foreground">Model answer:</p>
+                              <p className="font-medium">
+                                {question.correctAnswer ? 
+                                  (question.correctAnswer as string) : 
+                                  <span className="text-exam-accent italic">Answer provided as PDF</span>
+                                }
+                              </p>
                             </div>
                           )}
                         </div>
@@ -839,7 +947,24 @@ const ExamCreate = () => {
                         {question.type === "short-answer" && (
                           <div className="mt-2 p-2 bg-slate-50 rounded-md">
                             <p className="text-sm text-muted-foreground">Expected answer:</p>
-                            <p className="font-medium">{question.correctAnswer as string}</p>
+                            <p className="font-medium">
+                              {question.correctAnswer ? 
+                                (question.correctAnswer as string) : 
+                                <span className="text-exam-accent italic">Answer provided as PDF</span>
+                              }
+                            </p>
+                          </div>
+                        )}
+                        
+                        {question.type === "long-answer" && (
+                          <div className="mt-2 p-2 bg-slate-50 rounded-md">
+                            <p className="text-sm text-muted-foreground">Model answer:</p>
+                            <p className="font-medium">
+                              {question.correctAnswer ? 
+                                (question.correctAnswer as string) : 
+                                <span className="text-exam-accent italic">Answer provided as PDF</span>
+                              }
+                            </p>
                           </div>
                         )}
                       </div>

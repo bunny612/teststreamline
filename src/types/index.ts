@@ -42,6 +42,7 @@ export interface ModelAnswer {
   questionId: string;
   answer: string | number;
   explanation?: string;
+  answerPdfUrl?: string; // Added support for PDF answers
 }
 
 export interface StudentAnswer {

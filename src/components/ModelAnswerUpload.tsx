@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, FileUp, HelpCircle } from "lucide-react";
+import { CheckCircle, FileUp, HelpCircle, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import AnswerPdfUpload from "./AnswerPdfUpload";
 
 interface ModelAnswerUploadProps {
   questions: Question[];
@@ -21,6 +24,7 @@ const ModelAnswerUpload = ({ questions, existingAnswers = [], onSave }: ModelAns
   const [modelAnswers, setModelAnswers] = useState<ModelAnswer[]>(existingAnswers);
   const [uploadMethod, setUploadMethod] = useState<"manual" | "file">("manual");
   const [fileContent, setFileContent] = useState<string>("");
+  const [usePdfAnswer, setUsePdfAnswer] = useState<Record<string, boolean>>({});
 
   const handleAnswerChange = (questionId: string, value: string | number) => {
     const updatedAnswers = [...modelAnswers];
@@ -59,6 +63,45 @@ const ModelAnswerUpload = ({ questions, existingAnswers = [], onSave }: ModelAns
     }
     
     setModelAnswers(updatedAnswers);
+  };
+
+  const handlePdfAnswerUploaded = (questionId: string, pdfUrl: string) => {
+    const updatedAnswers = [...modelAnswers];
+    const existingIndex = updatedAnswers.findIndex(a => a.questionId === questionId);
+    
+    if (existingIndex >= 0) {
+      updatedAnswers[existingIndex] = { 
+        ...updatedAnswers[existingIndex], 
+        answerPdfUrl: pdfUrl,
+        // Set answer to a placeholder when using PDF
+        answer: "See PDF for model answer"
+      };
+    } else {
+      updatedAnswers.push({
+        questionId,
+        answer: "See PDF for model answer",
+        answerPdfUrl: pdfUrl
+      });
+    }
+    
+    setModelAnswers(updatedAnswers);
+    setUsePdfAnswer({...usePdfAnswer, [questionId]: true});
+  };
+
+  const handlePdfAnswerRemoved = (questionId: string) => {
+    const updatedAnswers = [...modelAnswers];
+    const existingIndex = updatedAnswers.findIndex(a => a.questionId === questionId);
+    
+    if (existingIndex >= 0) {
+      const { answerPdfUrl, ...rest } = updatedAnswers[existingIndex];
+      updatedAnswers[existingIndex] = { 
+        ...rest,
+        answer: "" // Clear the answer when removing PDF
+      };
+    }
+    
+    setModelAnswers(updatedAnswers);
+    setUsePdfAnswer({...usePdfAnswer, [questionId]: false});
   };
   
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,6 +176,14 @@ const ModelAnswerUpload = ({ questions, existingAnswers = [], onSave }: ModelAns
     URL.revokeObjectURL(url);
   };
 
+  const togglePdfAnswer = (questionId: string, enabled: boolean) => {
+    setUsePdfAnswer({...usePdfAnswer, [questionId]: enabled});
+    
+    if (!enabled) {
+      handlePdfAnswerRemoved(questionId);
+    }
+  };
+
   return (
     <Card className="shadow-md animate-scale-in">
       <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -160,6 +211,7 @@ const ModelAnswerUpload = ({ questions, existingAnswers = [], onSave }: ModelAns
                 <p className="max-w-xs">
                   Upload model answers to enable automated evaluation of student responses.
                   For multiple-choice questions, enter the index of the correct option (0-based).
+                  For text answers, you can provide a text answer or upload a PDF.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -216,15 +268,42 @@ const ModelAnswerUpload = ({ questions, existingAnswers = [], onSave }: ModelAns
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Correct Answer:
-                      </label>
-                      <Textarea 
-                        placeholder="Enter the model answer"
-                        value={getAnswerForQuestion(question.id)?.answer as string || ""}
-                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                        className="min-h-[100px]"
-                      />
+                      {question.type !== "pdf-upload" && (
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium">
+                            Correct Answer:
+                          </label>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id={`pdf-toggle-${question.id}`}
+                              checked={usePdfAnswer[question.id] || false}
+                              onCheckedChange={(checked) => togglePdfAnswer(question.id, checked)}
+                            />
+                            <Label htmlFor={`pdf-toggle-${question.id}`} className="text-sm">
+                              <div className="flex items-center">
+                                <FileText className="h-4 w-4 mr-1" />
+                                Use PDF Answer
+                              </div>
+                            </Label>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!usePdfAnswer[question.id] ? (
+                        <Textarea 
+                          placeholder="Enter the model answer"
+                          value={getAnswerForQuestion(question.id)?.answer as string || ""}
+                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          className="min-h-[100px]"
+                        />
+                      ) : (
+                        <AnswerPdfUpload
+                          onPdfUploaded={(url) => handlePdfAnswerUploaded(question.id, url)}
+                          onPdfRemoved={() => handlePdfAnswerRemoved(question.id)}
+                          existingPdfUrl={getAnswerForQuestion(question.id)?.answerPdfUrl}
+                        />
+                      )}
                     </div>
                   )}
                   
