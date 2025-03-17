@@ -5,9 +5,11 @@ import { getStudentExams, getTeacherExams } from "@/services/mockData";
 import ExamCard from "@/components/ExamCard";
 import { BarChart, LineChart } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
 
 const StudentDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const studentId = user?.id || '';
   const studentExams = getStudentExams(studentId);
   
@@ -16,7 +18,10 @@ const StudentDashboard = () => {
       <h1 className="text-3xl font-bold text-exam-dark">Welcome, {user?.name}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/upcoming")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Upcoming Exams</CardTitle>
             <CardDescription>Scheduled exams for you</CardDescription>
@@ -28,7 +33,10 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/upcoming")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Available Now</CardTitle>
             <CardDescription>Exams you can take right now</CardDescription>
@@ -40,7 +48,10 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/results")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Completed</CardTitle>
             <CardDescription>Your finished exams</CardDescription>
@@ -141,6 +152,7 @@ const StudentDashboard = () => {
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const teacherId = user?.id || '';
   const teacherExams = getTeacherExams(teacherId);
   
@@ -154,7 +166,10 @@ const TeacherDashboard = () => {
       <h1 className="text-3xl font-bold text-exam-dark">Welcome, {user?.name}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/manage")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Total Exams</CardTitle>
             <CardDescription>All your exams</CardDescription>
@@ -166,7 +181,10 @@ const TeacherDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/manage?tab=draft")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Draft</CardTitle>
             <CardDescription>Unfinished exams</CardDescription>
@@ -178,7 +196,10 @@ const TeacherDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/manage?tab=scheduled")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Scheduled</CardTitle>
             <CardDescription>Upcoming exams</CardDescription>
@@ -190,7 +211,10 @@ const TeacherDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/exams/manage?tab=completed")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Completed</CardTitle>
             <CardDescription>Finished exams</CardDescription>

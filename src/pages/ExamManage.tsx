@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Exam } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,9 +56,14 @@ const mockExams: Exam[] = [
 
 const ExamManage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [exams, setExams] = useState<Exam[]>([]);
+  
+  // Get the tab from URL query parameters
+  const searchParams = new URLSearchParams(location.search);
+  const defaultTab = searchParams.get('tab') || 'all';
   
   useEffect(() => {
     // In a real app, this would be an API call
@@ -76,6 +80,11 @@ const ExamManage = () => {
   if (loading) {
     return <LoadingSpinner />;
   }
+  
+  const handleTabChange = (value: string) => {
+    // Update the URL when tab changes without full page reload
+    navigate(`/exams/manage?tab=${value}`, { replace: true });
+  };
   
   return (
     <div className="container mx-auto px-4 py-6">
@@ -131,7 +140,7 @@ const ExamManage = () => {
         </Card>
       </div>
       
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full" onValueChange={handleTabChange}>
         <TabsList className="mb-4">
           <TabsTrigger value="all">All Exams</TabsTrigger>
           <TabsTrigger value="draft">Drafts</TabsTrigger>
