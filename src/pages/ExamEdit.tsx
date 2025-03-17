@@ -25,7 +25,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, set, parse } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Clock, Trash2, Plus } from "lucide-react";
 import {
@@ -75,17 +75,23 @@ const examFormSchema = z.object({
   description: z.string().min(10, { message: "Description must be at least 10 characters" }),
   duration: z.coerce.number().min(5, { message: "Duration must be at least 5 minutes" }),
   startDate: z.date({ required_error: "Start date is required" }),
+  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { 
+    message: "Start time must be in 24-hour format (HH:MM)" 
+  }),
   endDate: z.date({ required_error: "End date is required" }),
+  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { 
+    message: "End time must be in 24-hour format (HH:MM)" 
+  }),
 });
 
-// Form schema for questions - add pdfUrl to the schema
+// Form schema for questions
 const questionFormSchema = z.object({
   type: z.enum(["multiple-choice", "short-answer", "long-answer", "pdf-upload"]),
   content: z.string().min(3, { message: "Question must be at least 3 characters" }),
   options: z.array(z.string()).optional(),
   correctAnswer: z.union([z.string(), z.number()]).optional(),
   points: z.coerce.number().min(1, { message: "Points must be at least 1" }),
-  pdfUrl: z.string().optional(), // Add this field to the schema
+  pdfUrl: z.string().optional(),
 });
 
 const ExamEdit = () => {
@@ -104,7 +110,9 @@ const ExamEdit = () => {
       description: "",
       duration: 60,
       startDate: new Date(),
+      startTime: "09:00",
       endDate: new Date(),
+      endTime: "10:00",
     },
   });
 
@@ -124,22 +132,57 @@ const ExamEdit = () => {
       setExam(mockExam);
       setLoading(false);
       
+      // Parse date and time from the ISO strings
+      const startDate = new Date(mockExam.startDate);
+      const endDate = new Date(mockExam.endDate);
+      
       examForm.reset({
         title: mockExam.title,
         description: mockExam.description,
         duration: mockExam.duration,
-        startDate: new Date(mockExam.startDate),
-        endDate: new Date(mockExam.endDate),
+        startDate: startDate,
+        startTime: format(startDate, 'HH:mm'),
+        endDate: endDate,
+        endTime: format(endDate, 'HH:mm'),
       });
     }, 1000);
   }, [id]);
 
   const handleSaveExam = (values: z.infer<typeof examFormSchema>) => {
-    console.log("Saving exam details:", values);
+    // Combine date and time into ISO strings
+    const startDateTime = combineDateTime(values.startDate, values.startTime);
+    const endDateTime = combineDateTime(values.endDate, values.endTime);
+    
+    console.log("Saving exam details:", { 
+      ...values, 
+      startDate: startDateTime, 
+      endDate: endDateTime 
+    });
+    
+    // In a real app, you would save the updated exam details to your backend
+    if (exam) {
+      setExam({
+        ...exam,
+        title: values.title,
+        description: values.description,
+        duration: values.duration,
+        startDate: startDateTime,
+        endDate: endDateTime,
+      });
+    }
+    
     toast({
       title: "Exam Updated",
-      description: "Exam details have been successfully updated",
+      description: "Exam details and schedule have been successfully updated",
     });
+  };
+
+  // Utility function to combine date and time
+  const combineDateTime = (date: Date, timeString: string): string => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const newDate = new Date(date);
+    newDate.setHours(hours, minutes, 0, 0);
+    return newDate.toISOString();
   };
 
   const handleEditQuestion = (index: number) => {
@@ -154,6 +197,7 @@ const ExamEdit = () => {
       options: question.options || ["", "", "", ""],
       correctAnswer: question.correctAnswer,
       points: question.points,
+      pdfUrl: question.pdfUrl,
     });
   };
 
@@ -187,6 +231,7 @@ const ExamEdit = () => {
         options: values.options,
         correctAnswer: values.correctAnswer,
         points: values.points,
+        pdfUrl: values.pdfUrl,
       };
       updatedQuestions.push(newQuestion);
     }
@@ -339,86 +384,144 @@ const ExamEdit = () => {
                     />
                   </div>
                   
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <FormField
-                      control={examForm.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Start Date</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant={"outline"}
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? (
-                                    format(field.value, "PPP")
-                                  ) : (
-                                    <span>Pick a date</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                initialFocus
-                                className="p-3 pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Exam Scheduling</h3>
                     
-                    <FormField
-                      control={examForm.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>End Date</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Start Date and Time */}
+                      <div className="space-y-4">
+                        <FormField
+                          control={examForm.control}
+                          name="startDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Start Date</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-full pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                      )}
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    initialFocus
+                                    className="p-3 pointer-events-auto"
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={examForm.control}
+                          name="startTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Start Time</FormLabel>
                               <FormControl>
-                                <Button
-                                  variant={"outline"}
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? (
-                                    format(field.value, "PPP")
-                                  ) : (
-                                    <span>Pick a date</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
+                                <div className="flex items-center">
+                                  <Input 
+                                    type="time" 
+                                    {...field}
+                                    className="flex-1"
+                                  />
+                                  <Clock className="ml-2 h-5 w-5 text-muted-foreground" />
+                                </div>
                               </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                initialFocus
-                                className="p-3 pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                              <FormDescription>
+                                24-hour format (e.g., 14:30 for 2:30 PM)
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      {/* End Date and Time */}
+                      <div className="space-y-4">
+                        <FormField
+                          control={examForm.control}
+                          name="endDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>End Date</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-full pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                      )}
+                                    >
+                                      {field.value ? (
+                                        format(field.value, "PPP")
+                                      ) : (
+                                        <span>Pick a date</span>
+                                      )}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    initialFocus
+                                    className="p-3 pointer-events-auto"
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={examForm.control}
+                          name="endTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>End Time</FormLabel>
+                              <FormControl>
+                                <div className="flex items-center">
+                                  <Input 
+                                    type="time" 
+                                    {...field}
+                                    className="flex-1"
+                                  />
+                                  <Clock className="ml-2 h-5 w-5 text-muted-foreground" />
+                                </div>
+                              </FormControl>
+                              <FormDescription>
+                                24-hour format (e.g., 16:30 for 4:30 PM)
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="flex justify-end">

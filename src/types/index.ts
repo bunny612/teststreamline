@@ -29,13 +29,17 @@ export interface Exam {
   description: string;
   teacherId: string;
   duration: number; // in minutes
-  startDate: string;
-  endDate: string;
+  startDate: string; // ISO format with both date and time
+  endDate: string; // ISO format with both date and time
   status: 'draft' | 'scheduled' | 'active' | 'completed' | 'graded';
   totalPoints: number;
   questions: Question[];
   pdfQuestionPaper?: string; // URL to the uploaded PDF
   modelAnswers?: ModelAnswer[]; // Added model answers
+  timeRestriction?: {
+    allowLateSubmission: boolean;
+    gracePeriod?: number; // in minutes
+  };
 }
 
 export interface ModelAnswer {
