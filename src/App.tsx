@@ -20,6 +20,7 @@ import ExamUpcoming from "./pages/ExamUpcoming";
 import ExamTake from "./pages/ExamTake";
 import ExamDetails from "./pages/ExamDetails";
 import ExamEvaluate from "./pages/ExamEvaluate";
+import Settings from "./pages/Settings";
 
 // Layouts
 import AppLayout from "./components/AppLayout";
@@ -57,7 +58,7 @@ const App = () => (
               
               {/* Profile & Settings */}
               <Route path="/profile" element={<Dashboard />} />
-              <Route path="/settings" element={<Dashboard />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             
             {/* Index route redirector */}
