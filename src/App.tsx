@@ -20,6 +20,7 @@ import ExamUpcoming from "./pages/ExamUpcoming";
 import ExamTake from "./pages/ExamTake";
 import ExamDetails from "./pages/ExamDetails";
 import ExamEvaluate from "./pages/ExamEvaluate";
+import EvaluationCenter from "./pages/EvaluationCenter";
 import Settings from "./pages/Settings";
 
 // Layouts
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/exams/create" element={<ExamCreate />} />
               <Route path="/exams/edit/:id" element={<ExamEdit />} />
               <Route path="/exams/evaluate/:id" element={<ExamEvaluate />} />
+              <Route path="/evaluation-center" element={<EvaluationCenter />} />
               
               {/* Student Routes */}
               <Route path="/exams/upcoming" element={<ExamUpcoming />} />

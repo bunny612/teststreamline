@@ -67,6 +67,7 @@ export interface ExamAttempt {
   answers: StudentAnswer[];
   score?: number;
   totalScore?: number;
+  feedback?: string;
 }
 
 export interface ExamResult {

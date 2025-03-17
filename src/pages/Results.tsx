@@ -1,12 +1,12 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ExamResult, Exam } from "@/types";
+import { ExamResult, Exam, ExamAttempt } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, BarChart2, ArrowLeft } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
+import ExamEvaluationResult from "@/components/ExamEvaluationResult";
 import { 
   BarChart, 
   Bar, 
@@ -17,7 +17,6 @@ import {
   ResponsiveContainer 
 } from "recharts";
 
-// Mock data for a student's exam results
 const mockExamResults: ExamResult[] = [
   {
     examId: "1",
@@ -37,7 +36,6 @@ const mockExamResults: ExamResult[] = [
   }
 ];
 
-// Mock exams for reference
 const mockExams: Exam[] = [
   {
     id: "1",
@@ -49,7 +47,44 @@ const mockExams: Exam[] = [
     endDate: "2023-10-15T11:00:00.000Z",
     status: "completed",
     totalPoints: 100,
-    questions: []
+    questions: [
+      {
+        id: "q1",
+        examId: "1",
+        type: "multiple-choice",
+        content: "What does CPU stand for?",
+        options: [
+          "Central Processing Unit",
+          "Computer Personal Unit",
+          "Central Process Utility",
+          "Central Processor Underwriter"
+        ],
+        correctAnswer: 0,
+        points: 10
+      },
+      {
+        id: "q2",
+        examId: "1",
+        type: "multiple-choice",
+        content: "Which of the following is not a programming language?",
+        options: [
+          "Java",
+          "Python",
+          "HTML",
+          "Microsoft Word"
+        ],
+        correctAnswer: 3,
+        points: 10
+      },
+      {
+        id: "q3",
+        examId: "1",
+        type: "short-answer",
+        content: "What is an algorithm?",
+        correctAnswer: "A step-by-step procedure to solve a problem",
+        points: 15
+      }
+    ]
   },
   {
     id: "2",
@@ -65,6 +100,61 @@ const mockExams: Exam[] = [
   }
 ];
 
+const mockExamAttempts: ExamAttempt[] = [
+  {
+    id: "attempt1",
+    examId: "1",
+    studentId: "2",
+    startTime: "2023-10-15T09:30:00.000Z",
+    endTime: "2023-10-15T11:30:00.000Z",
+    status: "graded",
+    answers: [
+      {
+        questionId: "q1",
+        answer: 0,
+        score: 10,
+        feedback: "Correct answer!"
+      },
+      {
+        questionId: "q2",
+        answer: 3,
+        score: 0,
+        feedback: "Incorrect. The correct answer was option B."
+      },
+      {
+        questionId: "q3",
+        answer: "An algorithm is a step-by-step process",
+        score: 10,
+        feedback: "Correct answer!"
+      }
+    ],
+    totalScore: 20
+  },
+  {
+    id: "attempt2",
+    examId: "2",
+    studentId: "2",
+    startTime: "2023-11-05T10:00:00.000Z",
+    endTime: "2023-11-05T10:25:00.000Z",
+    status: "graded",
+    answers: [
+      {
+        questionId: "q1",
+        answer: 0,
+        score: 5,
+        feedback: "Correct answer!"
+      },
+      {
+        questionId: "q2",
+        answer: 2,
+        score: 5,
+        feedback: "Correct answer!"
+      }
+    ],
+    totalScore: 42
+  }
+];
+
 const Results = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -74,15 +164,14 @@ const Results = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [selectedResult, setSelectedResult] = useState<ExamResult | null>(null);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
+  const [selectedAttempt, setSelectedAttempt] = useState<ExamAttempt | null>(null);
   
   useEffect(() => {
-    // In a real app, this would be an API call
     setTimeout(() => {
       setResults(mockExamResults);
       setExams(mockExams);
       setLoading(false);
       
-      // If an exam ID is provided, select that result
       if (id) {
         const result = mockExamResults.find(r => r.examId === id);
         if (result) {
@@ -90,6 +179,10 @@ const Results = () => {
           const exam = mockExams.find(e => e.id === id);
           if (exam) {
             setSelectedExam(exam);
+          }
+          const attempt = mockExamAttempts.find(a => a.examId === id);
+          if (attempt) {
+            setSelectedAttempt(attempt);
           }
         }
       }
@@ -106,12 +199,10 @@ const Results = () => {
       }
     }
     
-    // Update URL without navigating away
     navigate(`/results/${examId}`, { replace: true });
   };
   
   const handleDownloadResult = () => {
-    // In a real app, this would generate and download a PDF
     alert("In a real app, this would download a PDF of your results.");
   };
   
@@ -135,7 +226,6 @@ const Results = () => {
     return 'F';
   };
   
-  // Prepare chart data
   const chartData = results.map(result => {
     const exam = exams.find(e => e.id === result.examId);
     return {
@@ -259,6 +349,7 @@ const Results = () => {
             onClick={() => {
               setSelectedResult(null);
               setSelectedExam(null);
+              setSelectedAttempt(null);
               navigate("/results", { replace: true });
             }}
           >
@@ -266,83 +357,90 @@ const Results = () => {
             Back to All Results
           </Button>
           
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-exam-primary">{selectedExam.title}</h1>
-            <p className="text-muted-foreground">{selectedExam.description}</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Score</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-exam-primary">
-                  {selectedResult.score} 
-                  <span className="text-base text-muted-foreground font-normal ml-1">
-                    / {selectedResult.totalPoints}
-                  </span>
-                </div>
-                <p className="text-muted-foreground">
-                  {getPercentageScore(selectedResult.score, selectedResult.totalPoints)}% 
-                  (Grade {getGradeFromPercentage(getPercentageScore(selectedResult.score, selectedResult.totalPoints))})
-                </p>
-              </CardContent>
-            </Card>
+          {selectedAttempt && selectedExam ? (
+            <ExamEvaluationResult 
+              attempt={selectedAttempt} 
+              exam={selectedExam} 
+            />
+          ) : (
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-exam-primary">{selectedExam.title}</h1>
+              <p className="text-muted-foreground">{selectedExam.description}</p>
+            </div>
             
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Completed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-medium">
-                  {formatDate(selectedResult.completedAt)}
-                </div>
-                <p className="text-muted-foreground">
-                  {new Date(selectedResult.completedAt).toLocaleTimeString()}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold text-exam-primary">
+                    {selectedResult.score} 
+                    <span className="text-base text-muted-foreground font-normal ml-1">
+                      / {selectedResult.totalPoints}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {getPercentageScore(selectedResult.score, selectedResult.totalPoints)}% 
+                    (Grade {getGradeFromPercentage(getPercentageScore(selectedResult.score, selectedResult.totalPoints))})
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Completed</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-medium">
+                    {formatDate(selectedResult.completedAt)}
+                  </div>
+                  <p className="text-muted-foreground">
+                    {new Date(selectedResult.completedAt).toLocaleTimeString()}
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Exam Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span>{selectedExam.duration} minutes</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span>{formatDate(selectedExam.startDate)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
             
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Exam Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Duration:</span>
-                    <span>{selectedExam.duration} minutes</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date:</span>
-                    <span>{formatDate(selectedExam.startDate)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {selectedResult.feedback && (
-            <Card className="mb-6">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Teacher Feedback</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="italic">{selectedResult.feedback}</p>
-              </CardContent>
-            </Card>
+            {selectedResult.feedback && (
+              <Card className="mb-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Teacher Feedback</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="italic">{selectedResult.feedback}</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            <div className="flex justify-center">
+              <Button 
+                className="bg-exam-primary" 
+                onClick={handleDownloadResult}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Result as PDF
+              </Button>
+            </div>
           )}
-          
-          <div className="flex justify-center">
-            <Button 
-              className="bg-exam-primary" 
-              onClick={handleDownloadResult}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download Result as PDF
-            </Button>
-          </div>
         </div>
       ) : (
         <div className="text-center py-12">
