@@ -10,64 +10,56 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, RefreshCcw } from "lucide-react";
 import ExamCard from "@/components/ExamCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Mock data for student's exams
-const mockExams: Exam[] = [
-  {
-    id: "1",
-    title: "Midterm Examination",
-    description: "Comprehensive assessment of first semester material",
-    teacherId: "1",
-    duration: 120,
-    startDate: "2023-11-15T09:00:00.000Z",
-    endDate: "2023-11-15T11:00:00.000Z",
-    status: "scheduled",
-    totalPoints: 100,
-    questions: []
-  },
-  {
-    id: "2",
-    title: "Quiz on Chapter 3",
-    description: "Brief assessment on recent material",
-    teacherId: "1",
-    duration: 30,
-    startDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    endDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-    status: "completed",
-    totalPoints: 50,
-    questions: []
-  },
-  {
-    id: "4",
-    title: "Pop Quiz",
-    description: "Quick assessment of today's lecture material",
-    teacherId: "1",
-    duration: 15,
-    startDate: new Date().toISOString(), // Today
-    endDate: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(), // 5 hours from now
-    status: "active", // Available now
-    totalPoints: 20,
-    questions: []
-  }
-];
+import { getStudentExams } from "@/services/mockData";
+import { useToast } from "@/hooks/use-toast";
 
 const ExamUpcoming = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  const fetchExams = () => {
+    setRefreshing(true);
+    // In a real app, this would be an API call with the latest data
+    setTimeout(() => {
+      const studentId = user?.id || '';
+      const studentExamsData = getStudentExams(studentId);
+      // Combine all exam types into one array
+      const allExams = [
+        ...studentExamsData.upcoming,
+        ...studentExamsData.available,
+        ...studentExamsData.completed
+      ];
+      
+      setExams(allExams);
+      setLoading(false);
+      setRefreshing(false);
+    }, 600); // Short timeout to simulate network request
+  };
   
   useEffect(() => {
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setExams(mockExams);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchExams();
+    
+    // Set up poll interval for real-time updates (every 60 seconds)
+    const pollInterval = setInterval(fetchExams, 60000);
+    
+    return () => clearInterval(pollInterval);
+  }, [user?.id]);
+  
+  const handleRefresh = () => {
+    fetchExams();
+    toast({
+      title: "Refreshing exam list",
+      description: "Getting the latest available exams"
+    });
+  };
   
   const now = new Date();
   
@@ -96,9 +88,21 @@ const ExamUpcoming = () => {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-exam-primary">My Exams</h1>
-        <p className="text-muted-foreground">View your upcoming and past exams</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-exam-primary">My Exams</h1>
+          <p className="text-muted-foreground">View your upcoming and past exams</p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2"
+        >
+          <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
       </div>
       
       {availableExams.length > 0 && (
