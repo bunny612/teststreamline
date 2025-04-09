@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ExamResult, Exam, ExamAttempt } from "@/types";
@@ -341,6 +342,27 @@ const Results = () => {
             </div>
           )}
         </>
+      ) : selectedExam && selectedAttempt ? (
+        <div>
+          <Button 
+            variant="outline" 
+            className="mb-6" 
+            onClick={() => {
+              setSelectedResult(null);
+              setSelectedExam(null);
+              setSelectedAttempt(null);
+              navigate("/results", { replace: true });
+            }}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to All Results
+          </Button>
+          
+          <ExamEvaluationResult 
+            attempt={selectedAttempt} 
+            exam={selectedExam} 
+          />
+        </div>
       ) : selectedExam ? (
         <div>
           <Button 
@@ -357,90 +379,83 @@ const Results = () => {
             Back to All Results
           </Button>
           
-          {selectedAttempt && selectedExam ? (
-            <ExamEvaluationResult 
-              attempt={selectedAttempt} 
-              exam={selectedExam} 
-            />
-          ) : (
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-exam-primary">{selectedExam.title}</h1>
-              <p className="text-muted-foreground">{selectedExam.description}</p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-exam-primary">{selectedExam.title}</h1>
+            <p className="text-muted-foreground">{selectedExam.description}</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold text-exam-primary">
+                  {selectedResult.score} 
+                  <span className="text-base text-muted-foreground font-normal ml-1">
+                    / {selectedResult.totalPoints}
+                  </span>
+                </div>
+                <p className="text-muted-foreground">
+                  {getPercentageScore(selectedResult.score, selectedResult.totalPoints)}% 
+                  (Grade {getGradeFromPercentage(getPercentageScore(selectedResult.score, selectedResult.totalPoints))})
+                </p>
+              </CardContent>
+            </Card>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-exam-primary">
-                    {selectedResult.score} 
-                    <span className="text-base text-muted-foreground font-normal ml-1">
-                      / {selectedResult.totalPoints}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground">
-                    {getPercentageScore(selectedResult.score, selectedResult.totalPoints)}% 
-                    (Grade {getGradeFromPercentage(getPercentageScore(selectedResult.score, selectedResult.totalPoints))})
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Completed</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-lg font-medium">
-                    {formatDate(selectedResult.completedAt)}
-                  </div>
-                  <p className="text-muted-foreground">
-                    {new Date(selectedResult.completedAt).toLocaleTimeString()}
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Exam Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Duration:</span>
-                      <span>{selectedExam.duration} minutes</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date:</span>
-                      <span>{formatDate(selectedExam.startDate)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Completed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-medium">
+                  {formatDate(selectedResult.completedAt)}
+                </div>
+                <p className="text-muted-foreground">
+                  {new Date(selectedResult.completedAt).toLocaleTimeString()}
+                </p>
+              </CardContent>
+            </Card>
             
-            {selectedResult.feedback && (
-              <Card className="mb-6">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Teacher Feedback</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="italic">{selectedResult.feedback}</p>
-                </CardContent>
-              </Card>
-            )}
-            
-            <div className="flex justify-center">
-              <Button 
-                className="bg-exam-primary" 
-                onClick={handleDownloadResult}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Result as PDF
-              </Button>
-            </div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Exam Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span>{selectedExam.duration} minutes</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Date:</span>
+                    <span>{formatDate(selectedExam.startDate)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {selectedResult.feedback && (
+            <Card className="mb-6">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Teacher Feedback</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="italic">{selectedResult.feedback}</p>
+              </CardContent>
+            </Card>
           )}
+          
+          <div className="flex justify-center">
+            <Button 
+              className="bg-exam-primary" 
+              onClick={handleDownloadResult}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Result as PDF
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
